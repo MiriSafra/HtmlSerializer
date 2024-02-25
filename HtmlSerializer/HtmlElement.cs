@@ -54,6 +54,7 @@ namespace HtmlSerializer
         }
         public IEnumerable<HtmlElement> FindElements(Selector selector)
         {
+            Console.WriteLine("gingi");
             HashSet<HtmlElement> elementsSet = new HashSet<HtmlElement>();
             FindElementsRecursively(this, selector, elementsSet);
             return elementsSet;
@@ -63,6 +64,7 @@ namespace HtmlSerializer
         {
             foreach (HtmlElement descendant in element.Descendants())
             {
+                Console.WriteLine("llsslsll");
                 if (MatchesSelector(descendant, selector))
                 {
                     elementsSet.Add(descendant);
@@ -86,10 +88,12 @@ namespace HtmlSerializer
 
             if (selector.Classes != null && selector.Classes.Count > 0)
             {
+                Console.WriteLine("clas");
                 foreach (string className in selector.Classes)
                 {
                     if (!element.Classes.Contains(className))
                     {
+                        Console.WriteLine("ךך");
                         return false;
                     }
                 }
@@ -99,6 +103,7 @@ namespace HtmlSerializer
             {
                 if (!MatchesSelector(element.Parent, selector.Parent))
                 {
+                    Console.WriteLine("ווו");
                     return false;
                 }
             }
@@ -112,6 +117,7 @@ namespace HtmlSerializer
                     {
                         if (MatchesSelector(child, childSelector))
                         {
+                            Console.WriteLine("ללל");
                             found = true;
                             break;
                         }

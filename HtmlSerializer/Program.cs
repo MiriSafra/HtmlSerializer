@@ -6,7 +6,10 @@ using System.Text.RegularExpressions;
 var url = "https://forum.netfree.link/category/1/%D7%94%D7%9B%D7%A8%D7%96%D7%95%D7%AA?";
 var serializer = new Serializer();
 var htmlTree = await serializer.HtmlSerializer(url);
-
+string queryString = " ul.nav.navbar-nav";
+Selector selector = Selector.FromQueryString(queryString);
+var result = htmlTree.FindElements(selector);
+result.ToList().ForEach(e => Console.WriteLine(e.ToString()));
 
 //// יצירת Selector לחיפוש רקע ב-HTML
 //var selector = new HtmlSerializer.Selector("div", "background");
@@ -19,21 +22,22 @@ var htmlTree = await serializer.HtmlSerializer(url);
 //{
 //    Console.WriteLine($"Found element with ID: {element.Id} and class: {string.Join(",", element.Classes)}");
 //}
-string queryString = "ul.nav.navbar-nav";
-Selector selector = Selector.FromQueryString(queryString);
-Console.WriteLine($"TagName: {selector.Name}");
-Console.WriteLine($"id: {selector.Id}");
-for (int i = 0; i < selector.Classes.Count; i++)
-    Console.WriteLine($"classes:{selector.Classes[i]}");
-///
+
+
+//Console.WriteLine($"TagName: {selector.Name}");
+//for (int i = 0; i < selector.Children.Count; i++)
+//    Console.WriteLine($"child: {selector.Children[i].Name}");
+
+//Console.WriteLine($"id: {selector.Id}");
+//for (int i = 0; i < selector.Classes.Count; i++)
+//    Console.WriteLine($"classes:{selector.Classes[i]}");
+/////
 
 
 ////Selector selector = new Selector();
 ////selector.ConvertToSelector("ul.nav.navbar-nav");
 //string queryString = "ul.nav.navbar-nav";
 
-var result = htmlTree.FindElements(selector);
-result.ToList().ForEach(e => Console.WriteLine(e.ToString()));
 ////string selectorString = "#main .important";
 //if (htmlTree != null)
 //{
