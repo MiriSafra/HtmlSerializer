@@ -1,243 +1,97 @@
-﻿using HtmlSerializer;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Net.Http;
+using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace HtmlSerializer
 {
-    public class Serializer
-    {
-        private readonly HttpClient _client;
-
-        public Serializer()
-        {
-            _client = new HttpClient();
-        }
-
-        public async Task<HtmlElement> HtmlSerializer(string url)
-        {
-            var html = await Load(url);
-            var cleanHtml = CleanHtml(html);
-            var tags = GetTags(cleanHtml);
-            return BuildHtmlTree(tags);
-        }
-
-        private async Task<string> Load(string url)
-        {
-            var response = await _client.GetAsync(url);
-            return await response.Content.ReadAsStringAsync();
-        }
-
-        private string CleanHtml(string html)
-        {
-            return Regex.Replace(html, "\\s", "");
-        }
-
-        private IEnumerable<string> GetTags(string html)
-        {
-            var matches = Regex.Matches(html, @"<(?<tag>[^\s>/]+)([^>]*)>");
-            foreach (Match match in matches)
+      internal class Serializer
+      {
+            public async Task<string> Load(string url)
             {
-                yield return match.Value;
+                HttpClient client = new HttpClient();
+                var response = await client.GetAsync(url);
+                var html = await response.Content.ReadAsStringAsync();
+                return html;
             }
-        }
 
-        private HtmlElement BuildHtmlTree(IEnumerable<string> tags, HtmlElement parent = null)
-        {
-            HtmlElement root = null;
-            HtmlElement currentElement = null;
-
-            foreach (var htmlElement in tags)
+            public HtmlElement BuildHtmlTree(string html)
             {
-                bool isSelfClosingTag = htmlElement.EndsWith("/>");
+                // ניקוי רווחים מיותרים
+                var cleanHtml = Regex.Replace(html, "\\n", "");
 
-                var tagNameStartIndex = htmlElement.IndexOf('<') + 1;
-                var tagNameEndIndex = htmlElement.IndexOfAny(new char[] { ' ', '/' }, tagNameStartIndex);
-                if (tagNameEndIndex > tagNameStartIndex)
+                // פיצול המחרוזת לפי תגיות
+                var htmlLines = Regex.Split(cleanHtml, "<(.*?)>").Where(s => s.Length > 0);
+
+                // יצירת אובייקט שורש
+                var rootElement = new HtmlElement();
+                var currentElement = rootElement;
+
+                // עיבוד כל שורה
+                foreach (var line in htmlLines)
                 {
-                    var tagName = htmlElement.Substring(tagNameStartIndex, tagNameEndIndex - tagNameStartIndex).ToLower();
+                    // חיתוך המילה הראשונה
+                    var firstWord = line.Split(' ')[0];
 
-                    var newElement = new HtmlElement
+                    // בדיקת תנאים
+                    if (firstWord == "/html")
                     {
-                        Name = tagName,
-                        Parent = parent
-                    };
-
-                    if (!isSelfClosingTag && !HtmlHelper.Instance.HtmlVoidTags.Contains(tagName))
-                    {
-                        currentElement = newElement;
-                        if (root == null)
-                            root = newElement;
+                        // הגענו לסוף ה-HTML
+                        break;
                     }
-
-                    if (parent != null)
-                        parent.Children.Add(newElement);
-
-                    var attributes = Regex.Matches(htmlElement, "([\\w-]+)\\s*=\\s*['\"]([^'\"]*?)['\"]");
-                    foreach (Match attribute in attributes)
+                    else if (firstWord.StartsWith("/"))
                     {
-                        var attributeName = attribute.Groups[1].Value.Trim();
-                        var attributeValue = attribute.Groups[2].Value.Trim();
+                        // תגית סוגרת - מעבר לרמה קודמת
+                        currentElement = currentElement.Parent;
+                    }
+                    else if (HtmlHelper.Instance.AllTags.Contains(firstWord))
+                    {
+                        // יצירת אובייקט חדש עבור תגית
+                        var element = new HtmlElement();
+                        element.Parent = currentElement;
+                        currentElement.Children.Add(element);
+                        currentElement = element;
 
-                        if (attributeName.Equals("class"))
+                        // פירוק תכונות
+                        var attributes = new Regex("([^\\s]*?)=\"(.*?)\"").Matches(line);
+                        foreach (Match attribute in attributes)
                         {
-                            var classes = attributeValue.Split(' ');
-                            foreach (var cls in classes)
+                            currentElement.Attributes.Add(attribute.Groups[1].Value);
+                            if (attribute.Groups[1].Value == "class")
                             {
-                                newElement.Classes.Add(cls);
+                                // פירוק ערך ה-class לחלקים לפי רווח ועדכון של המאפיין Classes
+                                string[] classParts = attribute.Groups[2].Value.Split(' ');
+                                foreach (string part in classParts)
+                                {
+                                    currentElement.Classes.Add(part.Trim());
+                                }
                             }
+                            else if (attribute.Groups[1].Value == "id")
+                                currentElement.Id = attribute.Groups[2].Value;
+                            //Console.WriteLine("Attribute: " + attribute.Groups[1].Value);
+                            //Console.WriteLine("Value: " + attribute.Groups[2].Value);
+                        }
+
+                        // עדכון שם
+                        currentElement.Name = firstWord;
+
+                        //בדיקת תגית סוגרת עצמית או שלא דורשת סגירה
+                        if (HtmlHelper.Instance.SelfClosingTags.Contains(firstWord) || firstWord.EndsWith("/"))
+                        {
+                            continue;
                         }
                     }
-
-                    if (!isSelfClosingTag)
+                    else
                     {
-                        var innerTextStartIndex = htmlElement.IndexOf('>') + 1;
-                        var innerTextEndIndex = htmlElement.LastIndexOf('<');
-                        if (innerTextEndIndex > innerTextStartIndex)
-                        {
-                            var innerText = htmlElement.Substring(innerTextStartIndex, innerTextEndIndex - innerTextStartIndex);
-                            if (!string.IsNullOrWhiteSpace(innerText))
-                            {
-                                newElement.InnerHtml = innerText;
-                            }
-                        }
+                        // טקסט פנימי
+                        currentElement.InnerHtml += line;
                     }
                 }
+
+                return rootElement;
             }
-
-            return root;
-        }
-    }
+      }
+   
 }
-
-
-
-//using HtmlSerializer;
-//using System;
-//using System.Collections.Generic;
-//using System.Net.Http;
-//using System.Text.RegularExpressions;
-//using System.Threading.Tasks;
-
-//namespace HtmlSerializer
-//{
-//    public class Serializer
-//    {
-//        private readonly HttpClient _client;
-
-//        public Serializer()
-//        {
-//            _client = new HttpClient();
-//        }
-
-//        public async Task<HtmlElement> HtmlSerializer(string url)
-//        {
-
-//            var html = await Load(url);
-
-//            var cleanHtml = new Regex("\\s").Replace(html, "");
-
-//            var htmlLines = new Regex("<( .*? )>").Split(cleanHtml).Where(s => s.Length > 0);
-
-//            var htmlElement = "<div id=\"my-id\" class=\"my-class-1 my-class-2\" width=\"108%\">text</div>";
-//            var attributes = new Regex("([*\\s] *? )=\"( .*? )\"").Matches(htmlElement);
-//            var tags = Regex.Matches(cleanHtml, @"<(?<tag>[^\s>/]+)([^>]*)>");
-//            return BuildHtmlTree(tags);
-//        }
-
-//        public async Task<string> Load(string url)
-//        {
-//            var response = await _client.GetAsync(url);
-//            return await response.Content.ReadAsStringAsync();
-//        }
-
-//        private HtmlElement BuildHtmlTree(IEnumerable<Match> tags, HtmlElement parent = null)
-//        {
-//            HtmlElement root = null;
-//            HtmlElement currentElement = null;
-
-//            foreach (Match tag in tags)
-//            {
-//                var htmlElement = tag.Value;
-
-//                // Check if the tag is void or not
-//                bool isSelfClosingTag = htmlElement.EndsWith("/>");
-
-//                // Extract tag name
-//                var tagNameStartIndex = htmlElement.IndexOf('<') + 1;
-//                var tagNameEndIndex = htmlElement.IndexOfAny(new char[] { ' ', '/' }, tagNameStartIndex);
-//                if (tagNameEndIndex > tagNameStartIndex)
-//                {
-//                    var tagName = htmlElement.Substring(tagNameStartIndex, tagNameEndIndex - tagNameStartIndex).ToLower();
-
-//                    // Create new element
-//                    var newElement = new HtmlElement
-//                    {
-//                        Name = tagName,
-//                        Parent = parent
-//                    };
-
-//                    // Check if it's a void or self-closing tag
-//                    if (!isSelfClosingTag && !HtmlHelper.Instance.HtmlVoidTags.Contains(tagName))
-//                    {
-//                        // If not a self-closing tag, set as the current element
-//                        currentElement = newElement;
-
-//                        // Update root if it's not set
-//                        if (root == null)
-//                            root = newElement;
-//                    }
-
-//                    // Add the new element to its parent if it exists
-//                    if (parent != null)
-//                        parent.Children.Add(newElement);
-
-//                    // Check for attributes
-//                    var attributes = Regex.Matches(htmlElement, "([\\w-]+)\\s*=\\s*['\"]([^'\"]*?)['\"]");
-//                    foreach (Match attribute in attributes)
-//                    {
-//                        var attributeName = attribute.Groups[1].Value.Trim();
-//                        var attributeValue = attribute.Groups[2].Value.Trim();
-
-//                        // Check if the attribute is 'class'
-//                        if (attributeName.Equals("class"))
-//                        {
-//                            // Split the attribute value by spaces and update the Classes property accordingly
-//                            var classes = attributeValue.Split(' ');
-//                            foreach (var cls in classes)
-//                            {
-//                                // Add each class to the Classes list
-//                                newElement.Classes.Add(cls);
-//                            }
-//                        }
-//                    }
-
-//                    // Check for inner text if it's not a self-closing tag
-//                    if (!isSelfClosingTag)
-//                    {
-//                        var innerTextStartIndex = htmlElement.IndexOf('>') + 1;
-//                        var innerTextEndIndex = htmlElement.LastIndexOf('<');
-//                        if (innerTextEndIndex > innerTextStartIndex)
-//                        {
-//                            var innerText = htmlElement.Substring(innerTextStartIndex, innerTextEndIndex - innerTextStartIndex);
-//                            if (!string.IsNullOrWhiteSpace(innerText))
-//                            {
-//                                // Update InnerHtml property
-//                                newElement.InnerHtml = innerText;
-//                            }
-//                        }
-//                    }
-//                }
-//            }
-
-//            return root;
-//        }
-
-//    }
-
-
-//}
-
-

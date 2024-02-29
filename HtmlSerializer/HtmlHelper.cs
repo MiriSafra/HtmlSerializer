@@ -11,12 +11,12 @@ namespace HtmlSerializer
     {
         private readonly static HtmlHelper _instance=new HtmlHelper();
         public static HtmlHelper Instance=> _instance;
-        public string[] HtmlVoidTags { get; set; }
-        public string[] HtmlTags { get; set; }
+        public string[] SelfClosingTags { get; set; }
+        public string[] AllTags { get; set; }
         private HtmlHelper()
         {
-            HtmlVoidTags = JsonSerializer.Deserialize<string[]>(File.ReadAllText("Json/HtmlVoidTags.json"));
-            HtmlTags = JsonSerializer.Deserialize<string[]>(File.ReadAllText("Json/HtmlTags.json"));
+            SelfClosingTags = JsonSerializer.Deserialize<string[]>(File.ReadAllText("Json/SelfClosingTags.json"));
+            AllTags = JsonSerializer.Deserialize<string[]>(File.ReadAllText("Json/AllTags.json"));
         }
     }
 }
